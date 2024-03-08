@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+  <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+  <script src="https://static.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script>
+  <script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+  <script src="./roslib.js"></script>
+
+</head>
+
+<body>
+  <h1>ROS cmd_vel Subscriber</h1>
+  <div id="cmd_vel_data"></div>
+
+  <script type="text/javascript">
+      // ROSブリッジへの接続
+      var ros = new ROSLIB.Ros({
+          url : 'ws://localhost:9090'  // ここにあなたのWebSocketサーバのアドレスを設定
+      });
+
+      ros.on('connection', function() {
+          console.log('Connected to websocket server.');
+      });
+
+      ros.on('error', function(error) {
+          console.log('Error connecting to websocket server: ', error);
+      });
+
+      ros.on('close', function() {
+          console.log('Connection to websocket server closed.');
+      });
+
+      // cmd_velトピックのサブスクライバーを作成
+      var cmdVelListener = new ROSLIB.Topic({
+          ros : ros,
+          name : '/cmd_vel',
+          messageType : 'geometry_msgs/Twist'
+      });
+      var cmd_vel = new ROSLIB.Topic({
+            ros : ros,
+            name : '/cmd_vel',
+            messageType : 'geometry_msgs/Twist'
+        });
+      cmdVelListener.subscribe(function(message) {
+          console.log('Received message on /cmd_vel: ', message);
+          document.getElementById('cmd_vel_data').innerHTML = 'Linear: ' + message.linear.x + ', Angular: ' + message.angular.z;
+          var twist = new ROSLIB.Message({
+                linear : {
+                    x : message.linear.x,
+                    y : 0.0,
+                    z : 0.0
+                },
+                angular : {
+                    x : 0.0,
+                    y : 0.0,
+                    z : message.angular.z
+                }
+            });
+          cmd_vel.publish(twist);
+          console.log("Publishing cmd_vel: linear x = " + message.linear.x + ", angular z = " + message.angular.z);
+      });
+  </script>
+</html>
