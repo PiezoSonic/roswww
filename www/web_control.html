@@ -27,10 +27,17 @@
         <div class="form-group">
             <label for="linear-velocity">Linear Velocity (x-axis): </label>
             <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="linear-velocity" value="0">
-        </div>
+            <span id="linear-velocity-value">0</span>
+          </div>
         <div class="form-group">
             <label for="angular-velocity">Angular Velocity (z-axis): </label>
             <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="angular-velocity" value="0">
+            <span id="angular-velocity-value">0</span>
+          </div>
+        <div class="form-group">
+          <label for="max-velocity">Max Velocity: </label>
+          <input type="range" class="custom-range" min="0.0" max="1.0" step="0.01" id="max-velocity" value="0">
+          <span id="max-velocity-value">0</span>
         </div>
         <canvas id="joystick" width="200" height="200"></canvas>
         <button type="button" id="move-button" class="btn btn-primary btn-block mt-2">Move Robot</button>
@@ -91,8 +98,9 @@
         ctx.fillStyle = 'gray';
         ctx.fill();
         ctx.closePath();
+        var Vel = parseFloat($("#max-velocity").val());
         console.log((x-100.0)/80.0,-(y-100.0)/80.0)
-        publishTwist(-(y-100.0)/80.0,(x-100.0)/80.0)
+        publishTwist(-Vel*(y-100.0)/80.0,0.6*(x-100.0)/80.0)
     }
 
     function handleTouchStart(e) {
@@ -134,6 +142,18 @@
         isDragging = false;
         drawJoystick(joystickCenterX, joystickCenterY);
     }
+    $('#linear-velocity').on('input', function() {
+      $('#linear-velocity-value').text($(this).val());
+  });
+
+  $('#angular-velocity').on('input', function() {
+      $('#angular-velocity-value').text($(this).val());
+  });
+
+  $('#max-velocity').on('input', function() {
+      $('#max-velocity-value').text($(this).val());
+  });
+
 
     drawJoystick(joystickCenterX, joystickCenterY);
     joystick.addEventListener('touchstart', handleTouchStart);
