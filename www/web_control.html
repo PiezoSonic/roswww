@@ -30,48 +30,124 @@
               <label for="angular-velocity">Angular Velocity (z-axis): </label>
               <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="angular-velocity" value="0">
             </div>
+            <canvas id="joystick" width="200" height="200"></canvas>
             <button type="button" id="move-button" class="btn btn-primary">Move Robot</button>
             <button type="button" id="stop-button" class="btn btn-danger ml-2">Emergency Stop</button>
           </div>
         </div>
       </div>
-    <script>
+      <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+      <script>
+        var joystick = document.getElementById('joystick');
+        var ctx = joystick.getContext('2d');
+        var joystickRadius = 50;
+        var joystickX = joystick.width / 2;
+        var joystickY = joystick.height / 2;
+        var joystickCenterX = joystick.width / 2;
+        var joystickCenterY = joystick.height / 2;
+        var isDragging = false;
+    
+        function drawJoystick() {
+          ctx.clearRect(0, 0, joystick.width, joystick.height);
+    
+          ctx.beginPath();
+          ctx.arc(joystickCenterX, joystickCenterY, joystickRadius, 0, Math.PI * 2);
+          ctx.fillStyle = 'lightgray';
+          ctx.fill();
+          ctx.strokeStyle = 'black';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.closePath();
+    
+          ctx.beginPath();
+          ctx.arc(joystickX, joystickY, 20, 0, Math.PI * 2);
+          ctx.fillStyle = 'gray';
+          ctx.fill();
+          ctx.closePath();
+        }
+    
+        function handleMouseDown(e) {
+          var rect = joystick.getBoundingClientRect();
+          var mouseX = e.clientX - rect.left;
+          var mouseY = e.clientY - rect.top;
+    
+          var distance = Math.sqrt((mouseX - joystickCenterX) ** 2 + (mouseY - joystickCenterY) ** 2);
+          if (distance <= joystickRadius) {
+            isDragging = true;
+          }
+        }
+    
+        function handleMouseMove(e) {
+          if (isDragging) {
+            var rect = joystick.getBoundingClientRect();
+            var mouseX = e.clientX - rect.left;
+            var mouseY = e.clientY - rect.top;
+    
+            var distance = Math.sqrt((mouseX - joystickCenterX) ** 2 + (mouseY - joystickCenterY) ** 2);
+            if (distance <= joystickRadius) {
+              joystickX = mouseX;
+              joystickY = mouseY;
+            } else {
+              var angle = Math.atan2(mouseY - joystickCenterY, mouseX - joystickCenterX);
+              joystickX = joystickCenterX + joystickRadius * Math.cos(angle);
+              joystickY = joystickCenterY + joystickRadius * Math.sin(angle);
+            }
+            console.log((joystickX-100.0)/50.0,-(joystickY-100.0)/50.0)
+            publishTwist(-(joystickY-100.0)/50.0, (joystickX-100.0)/50.0);
+            drawJoystick();
+          }
+        }
+    
+        function handleMouseUp() {
+          isDragging = false;
+          joystickX = joystickCenterX;
+          joystickY = joystickCenterY;
+          drawJoystick();
+          publishTwist(0, 0);
+        }
+    
+        drawJoystick();
+        joystick.addEventListener('mousedown', handleMouseDown);
+        joystick.addEventListener('mousemove', handleMouseMove);
+        joystick.addEventListener('mouseup', handleMouseUp);
+        joystick.addEventListener('mouseleave', handleMouseUp);
+    
         var ros = new ROSLIB.Ros();
-        ros.connect('ws://localhost:9090');
+        ros.connect('ws://0.0.0.0:9090');
     
         var cmd_vel = new ROSLIB.Topic({
-            ros : ros,
-            name : '/cmd_vel',
-            messageType : 'geometry_msgs/Twist'
+          ros: ros,
+          name: '/cmd_vel',
+          messageType: 'geometry_msgs/Twist'
         });
-
+    
         function publishTwist(linearVel, angularVel) {
-            var twist = new ROSLIB.Message({
-                linear : {
-                    x : linearVel,
-                    y : 0.0,
-                    z : 0.0
-                },
-                angular : {
-                    x : 0.0,
-                    y : 0.0,
-                    z : angularVel
-                }
-            });
-
-            cmd_vel.publish(twist);
-            console.log("Publishing cmd_vel: linear x = " + linearVel + ", angular z = " + angularVel);
+          var twist = new ROSLIB.Message({
+            linear: {
+              x: linearVel,
+              y: 0.0,
+              z: 0.0
+            },
+            angular: {
+              x: 0.0,
+              y: 0.0,
+              z: angularVel
             }
-
+          });
+    
+          cmd_vel.publish(twist);
+          console.log("Publishing cmd_vel: linear x = " + linearVel + ", angular z = " + angularVel);
+        }
+    
         $("#move-button").click(function() {
-            var linearVel = parseFloat($("#linear-velocity").val());
-            var angularVel = parseFloat($("#angular-velocity").val());
-            publishTwist(linearVel, angularVel);
+          var linearVel = parseFloat($("#linear-velocity").val());
+          var angularVel = parseFloat($("#angular-velocity").val());
+          publishTwist(linearVel, angularVel);
         });
-
+    
         $("#stop-button").click(function() {
-            publishTwist(0, 0);
-            console.log("Emergency Stop Activated!");
+          publishTwist(0, 0);
+          console.log("Emergency Stop Activated!");
         });
       </script>
 </body>
