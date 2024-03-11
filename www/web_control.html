@@ -92,7 +92,7 @@
         ctx.fill();
         ctx.closePath();
         console.log((x-100.0)/80.0,-(y-100.0)/80.0)
-        publishTwist((x-100.0)/80.0,-(y-100.0)/80.0)
+        publishTwist(-(y-100.0)/80.0,(x-100.0)/80.0)
     }
 
     function handleTouchStart(e) {
