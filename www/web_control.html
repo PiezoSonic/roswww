@@ -30,7 +30,7 @@
               <label for="angular-velocity">Angular Velocity (z-axis): </label>
               <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="angular-velocity" value="0">
             </div>
-            <canvas id="joystick" width="200" height="200"></canvas>
+            <canvas id="joystick" width="500" height="500"></canvas>
             <button type="button" id="move-button" class="btn btn-primary">Move Robot</button>
             <button type="button" id="stop-button" class="btn btn-danger ml-2">Emergency Stop</button>
           </div>
@@ -40,7 +40,7 @@
       <script>
         var joystick = document.getElementById('joystick');
         var ctx = joystick.getContext('2d');
-        var joystickRadius = 50;
+        var joystickRadius = 100;
         var joystickX = joystick.width / 2;
         var joystickY = joystick.height / 2;
         var joystickCenterX = joystick.width / 2;
@@ -66,51 +66,54 @@
           ctx.closePath();
         }
     
-        function handleMouseDown(e) {
+        function handleTouchStart(e) {
+          e.preventDefault();
+          var touch = e.touches[0];
           var rect = joystick.getBoundingClientRect();
-          var mouseX = e.clientX - rect.left;
-          var mouseY = e.clientY - rect.top;
+          var touchX = touch.clientX - rect.left;
+          var touchY = touch.clientY - rect.top;
     
-          var distance = Math.sqrt((mouseX - joystickCenterX) ** 2 + (mouseY - joystickCenterY) ** 2);
+          var distance = Math.sqrt((touchX - joystickCenterX) ** 2 + (touchY - joystickCenterY) ** 2);
           if (distance <= joystickRadius) {
             isDragging = true;
+            drawJoystick(touchX, touchY);
           }
         }
     
-        function handleMouseMove(e) {
+        function handleTouchMove(e) {
+          e.preventDefault();
           if (isDragging) {
+            var touch = e.touches[0];
             var rect = joystick.getBoundingClientRect();
-            var mouseX = e.clientX - rect.left;
-            var mouseY = e.clientY - rect.top;
+            var touchX = touch.clientX - rect.left;
+            var touchY = touch.clientY - rect.top;
     
-            var distance = Math.sqrt((mouseX - joystickCenterX) ** 2 + (mouseY - joystickCenterY) ** 2);
+            var distance = Math.sqrt((touchX - joystickCenterX) ** 2 + (touchY - joystickCenterY) ** 2);
             if (distance <= joystickRadius) {
-              joystickX = mouseX;
-              joystickY = mouseY;
+              drawJoystick(touchX, touchY);
             } else {
-              var angle = Math.atan2(mouseY - joystickCenterY, mouseX - joystickCenterX);
-              joystickX = joystickCenterX + joystickRadius * Math.cos(angle);
-              joystickY = joystickCenterY + joystickRadius * Math.sin(angle);
+              var angle = Math.atan2(touchY - joystickCenterY, touchX - joystickCenterX);
+              var newX = joystickCenterX + joystickRadius * Math.cos(angle);
+              var newY = joystickCenterY + joystickRadius * Math.sin(angle);
+              console.log((joystickX-100.0)/50.0,-(joystickY-100.0)/50.0)
+              publishTwist(-(joystickY-100.0)/50.0, (joystickX-100.0)/50.0);
+              drawJoystick(newX, newY);
             }
-            console.log((joystickX-100.0)/50.0,-(joystickY-100.0)/50.0)
-            publishTwist(-(joystickY-100.0)/50.0, (joystickX-100.0)/50.0);
-            drawJoystick();
           }
         }
-    
-        function handleMouseUp() {
+
+        function handleTouchEnd(e) {
+          e.preventDefault();
           isDragging = false;
-          joystickX = joystickCenterX;
-          joystickY = joystickCenterY;
-          drawJoystick();
+          drawJoystick(joystickCenterX, joystickCenterY);
           publishTwist(0, 0);
         }
-    
-        drawJoystick();
-        joystick.addEventListener('mousedown', handleMouseDown);
-        joystick.addEventListener('mousemove', handleMouseMove);
-        joystick.addEventListener('mouseup', handleMouseUp);
-        joystick.addEventListener('mouseleave', handleMouseUp);
+
+        drawJoystick(joystickCenterX, joystickCenterY);
+        joystick.addEventListener('touchstart', handleTouchStart);
+        joystick.addEventListener('touchmove', handleTouchMove);
+        joystick.addEventListener('touchend', handleTouchEnd);
+        joystick.addEventListener('touchcancel', handleTouchEnd);
     
         var ros = new ROSLIB.Ros();
         ros.connect('ws://0.0.0.0:9090');
