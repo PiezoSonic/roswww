@@ -1,157 +1,159 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-  <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
-
-  <script src="https://static.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script>
-  <script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
-  <script src="./roslib.js"></script>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROS Robot Control Interface</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<style>
+    #joystick-container {
+        width: 100%;
+        max-width: 300px;
+        margin: 0 auto;
+        text-align: center;
+    }
+    #joystick {
+        width: 100%;
+        max-width: 200px;
+        height: auto;
+    }
+</style>
 </head>
-
 <body>
-    <div class="container mt-4">
-        <h1 class="mb-4">ROS Robot Control Interface</h1>
-        
-        <div class="card">
-          <div class="card-header">
-            Robot Movement Control (cmd_vel)
-          </div>
-          <div class="card-body">
-            <div class="form-group">
-              <label for="linear-velocity">Linear Velocity (x-axis): </label>
-              <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="linear-velocity" value="0">
-            </div>
-            <div class="form-group">
-              <label for="angular-velocity">Angular Velocity (z-axis): </label>
-              <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="angular-velocity" value="0">
-            </div>
-            <canvas id="joystick" width="500" height="500"></canvas>
-            <button type="button" id="move-button" class="btn btn-primary">Move Robot</button>
-            <button type="button" id="stop-button" class="btn btn-danger ml-2">Emergency Stop</button>
-          </div>
+<div class="container mt-4">
+    <h1 class="mb-4">ROS Robot Control Interface</h1>
+    
+    <div id="joystick-container">
+        <div class="form-group">
+            <label for="linear-velocity">Linear Velocity (x-axis): </label>
+            <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="linear-velocity" value="0">
         </div>
-      </div>
-      <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-      <script>
-        var joystick = document.getElementById('joystick');
-        var ctx = joystick.getContext('2d');
-        var joystickRadius = 100;
-        var joystickX = joystick.width / 2;
-        var joystickY = joystick.height / 2;
-        var joystickCenterX = joystick.width / 2;
-        var joystickCenterY = joystick.height / 2;
-        var isDragging = false;
-    
-        function drawJoystick() {
-          ctx.clearRect(0, 0, joystick.width, joystick.height);
-    
-          ctx.beginPath();
-          ctx.arc(joystickCenterX, joystickCenterY, joystickRadius, 0, Math.PI * 2);
-          ctx.fillStyle = 'lightgray';
-          ctx.fill();
-          ctx.strokeStyle = 'black';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.closePath();
-    
-          ctx.beginPath();
-          ctx.arc(joystickX, joystickY, 20, 0, Math.PI * 2);
-          ctx.fillStyle = 'gray';
-          ctx.fill();
-          ctx.closePath();
+        <div class="form-group">
+            <label for="angular-velocity">Angular Velocity (z-axis): </label>
+            <input type="range" class="custom-range" min="-1" max="1" step="0.1" id="angular-velocity" value="0">
+        </div>
+        <canvas id="joystick" width="200" height="200"></canvas>
+        <button type="button" id="move-button" class="btn btn-primary btn-block mt-2">Move Robot</button>
+        <button type="button" id="stop-button" class="btn btn-danger btn-block mt-2">Emergency Stop</button>
+    </div>
+</div>
+<script src="https://static.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script>
+<script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+<script src="./roslib.js"></script>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    var joystick = document.getElementById('joystick');
+    var ctx = joystick.getContext('2d');
+    var joystickRadius = 80;
+    var joystickCenterX = joystick.width / 2;
+    var joystickCenterY = joystick.height / 2;
+    var isDragging = false;
+    var ros = new ROSLIB.Ros();
+    ros.connect('ws://210.156.173.178:9090');
+
+    var cmd_vel = new ROSLIB.Topic({
+      ros: ros,
+      name: '/cmd_vel',
+      messageType: 'geometry_msgs/Twist'
+    });
+    function publishTwist(linearVel, angularVel) {
+      var twist = new ROSLIB.Message({
+        linear: {
+          x: linearVel,
+          y: 0.0,
+          z: 0.0
+        },
+        angular: {
+          x: 0.0,
+          y: 0.0,
+          z: angularVel
         }
-    
-        function handleTouchStart(e) {
-          e.preventDefault();
-          var touch = e.touches[0];
-          var rect = joystick.getBoundingClientRect();
-          var touchX = touch.clientX - rect.left;
-          var touchY = touch.clientY - rect.top;
-    
-          var distance = Math.sqrt((touchX - joystickCenterX) ** 2 + (touchY - joystickCenterY) ** 2);
-          if (distance <= joystickRadius) {
+      });
+
+      cmd_vel.publish(twist);
+      console.log("Publishing cmd_vel: linear x = " + linearVel + ", angular z = " + angularVel);
+    }
+
+    function drawJoystick(x, y) {
+        ctx.clearRect(0, 0, joystick.width, joystick.height);
+
+        ctx.beginPath();
+        ctx.arc(joystickCenterX, joystickCenterY, joystickRadius, 0, Math.PI * 2);
+        ctx.fillStyle = 'lightgray';
+        ctx.fill();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = 'gray';
+        ctx.fill();
+        ctx.closePath();
+        console.log((x-100.0)/80.0,-(y-100.0)/80.0)
+        publishTwist((x-100.0)/80.0,-(y-100.0)/80.0)
+    }
+
+    function handleTouchStart(e) {
+        e.preventDefault();
+        var touch = e.touches[0];
+        var rect = joystick.getBoundingClientRect();
+        var touchX = touch.clientX - rect.left;
+        var touchY = touch.clientY - rect.top;
+
+        var distance = Math.sqrt((touchX - joystickCenterX) ** 2 + (touchY - joystickCenterY) ** 2);
+        if (distance <= joystickRadius) {
             isDragging = true;
             drawJoystick(touchX, touchY);
-          }
         }
-    
-        function handleTouchMove(e) {
-          e.preventDefault();
-          if (isDragging) {
+    }
+
+    function handleTouchMove(e) {
+        e.preventDefault();
+        if (isDragging) {
             var touch = e.touches[0];
             var rect = joystick.getBoundingClientRect();
             var touchX = touch.clientX - rect.left;
             var touchY = touch.clientY - rect.top;
-    
+
             var distance = Math.sqrt((touchX - joystickCenterX) ** 2 + (touchY - joystickCenterY) ** 2);
             if (distance <= joystickRadius) {
-              drawJoystick(touchX, touchY);
+                drawJoystick(touchX, touchY);
             } else {
-              var angle = Math.atan2(touchY - joystickCenterY, touchX - joystickCenterX);
-              var newX = joystickCenterX + joystickRadius * Math.cos(angle);
-              var newY = joystickCenterY + joystickRadius * Math.sin(angle);
-              console.log((joystickX-100.0)/50.0,-(joystickY-100.0)/50.0)
-              publishTwist(-(joystickY-100.0)/50.0, (joystickX-100.0)/50.0);
-              drawJoystick(newX, newY);
+                var angle = Math.atan2(touchY - joystickCenterY, touchX - joystickCenterX);
+                var newX = joystickCenterX + joystickRadius * Math.cos(angle);
+                var newY = joystickCenterY + joystickRadius * Math.sin(angle);
+                drawJoystick(newX, newY);
             }
-          }
         }
+    }
 
-        function handleTouchEnd(e) {
-          e.preventDefault();
-          isDragging = false;
-          drawJoystick(joystickCenterX, joystickCenterY);
-          publishTwist(0, 0);
-        }
-
+    function handleTouchEnd(e) {
+        e.preventDefault();
+        isDragging = false;
         drawJoystick(joystickCenterX, joystickCenterY);
-        joystick.addEventListener('touchstart', handleTouchStart);
-        joystick.addEventListener('touchmove', handleTouchMove);
-        joystick.addEventListener('touchend', handleTouchEnd);
-        joystick.addEventListener('touchcancel', handleTouchEnd);
-    
-        var ros = new ROSLIB.Ros();
-        ros.connect('ws://0.0.0.0:9090');
-    
-        var cmd_vel = new ROSLIB.Topic({
-          ros: ros,
-          name: '/cmd_vel',
-          messageType: 'geometry_msgs/Twist'
-        });
-    
-        function publishTwist(linearVel, angularVel) {
-          var twist = new ROSLIB.Message({
-            linear: {
-              x: linearVel,
-              y: 0.0,
-              z: 0.0
-            },
-            angular: {
-              x: 0.0,
-              y: 0.0,
-              z: angularVel
-            }
-          });
-    
-          cmd_vel.publish(twist);
-          console.log("Publishing cmd_vel: linear x = " + linearVel + ", angular z = " + angularVel);
-        }
-    
-        $("#move-button").click(function() {
-          var linearVel = parseFloat($("#linear-velocity").val());
-          var angularVel = parseFloat($("#angular-velocity").val());
-          publishTwist(linearVel, angularVel);
-        });
-    
-        $("#stop-button").click(function() {
-          publishTwist(0, 0);
-          console.log("Emergency Stop Activated!");
-        });
-      </script>
+    }
+
+    drawJoystick(joystickCenterX, joystickCenterY);
+    joystick.addEventListener('touchstart', handleTouchStart);
+    joystick.addEventListener('touchmove', handleTouchMove);
+    joystick.addEventListener('touchend', handleTouchEnd);
+    joystick.addEventListener('touchcancel', handleTouchEnd);
+
+
+
+
+    $("#move-button").click(function() {
+      var linearVel = parseFloat($("#linear-velocity").val());
+      var angularVel = parseFloat($("#angular-velocity").val());
+      publishTwist(linearVel, angularVel);
+    });
+
+    $("#stop-button").click(function() {
+      publishTwist(0, 0);
+      console.log("Emergency Stop Activated!");
+    });
+  </script>
 </body>
 </html>
