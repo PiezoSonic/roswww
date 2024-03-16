@@ -22,7 +22,11 @@
 <body>
 <div class="container mt-4">
     <h1 class="mb-4">ROS Robot Control Interface</h1>
-    
+
+    <!-- <img id="camera-stream" src="" width="640" height="480"> -->
+    <script>
+      document.write("<img src='http://210.156.173.178:8080/stream?topic=/image_raw&type=ros_compressed'></img>");
+    </script>
     <div id="joystick-container">
         <div class="form-group">
             <label for="linear-velocity">Linear Velocity (x-axis): </label>
@@ -49,6 +53,9 @@
 <script src="./roslib.js"></script>
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script>
+
+
+
     var joystick = document.getElementById('joystick');
     var ctx = joystick.getContext('2d');
     var joystickRadius = 80;
@@ -63,6 +70,16 @@
       name: '/cmd_vel',
       messageType: 'geometry_msgs/Twist'
     });
+    var imageTopic = new ROSLIB.Topic({
+      ros: ros,
+      name: '/usb_cam/image_raw',
+      messageType: 'sensor_msgs/Image'
+    });
+    imageTopic.subscribe(function(message) {
+      var imgData = "data:image/jpeg;base64," + message.data;
+      console.log(imgData);
+      document.getElementById('camera-stream').src = imgData;
+    });
     function publishTwist(linearVel, angularVel) {
       var twist = new ROSLIB.Message({
         linear: {
@@ -73,7 +90,7 @@
         angular: {
           x: 0.0,
           y: 0.0,
-          z: angularVel
+          z: -angularVel
         }
       });
 
@@ -154,26 +171,58 @@
       $('#max-velocity-value').text($(this).val());
   });
 
+  var timeoutID;
 
+  function resetPublishTimer() {
+      if (timeoutID) {
+          clearTimeout(timeoutID);
+      }
+      timeoutID = setTimeout(function () {
+          publishTwist(0, 0);
+          console.log("No new commands received. Emergency Stop Activated!");
+      }, 1000); // Adjust the time here (in milliseconds) as needed
+  }
+
+  ros.on('connection', function() {
+      console.log('Connected to ROS');
+      resetPublishTimer();
+  });
+
+  ros.on('close', function() {
+      console.log('Disconnected from ROS');
+      if (timeoutID) {
+          clearTimeout(timeoutID);
+      }
+  });
+
+  ros.on('error', function(error) {
+      console.log('Error connecting to ROS: ', error);
+      if (timeoutID) {
+          clearTimeout(timeoutID);
+      }
+  });
     drawJoystick(joystickCenterX, joystickCenterY);
     joystick.addEventListener('touchstart', handleTouchStart);
     joystick.addEventListener('touchmove', handleTouchMove);
     joystick.addEventListener('touchend', handleTouchEnd);
     joystick.addEventListener('touchcancel', handleTouchEnd);
 
-
-
-
     $("#move-button").click(function() {
       var linearVel = parseFloat($("#linear-velocity").val());
       var angularVel = parseFloat($("#angular-velocity").val());
       publishTwist(linearVel, angularVel);
+      resetPublishTimer();
     });
 
     $("#stop-button").click(function() {
       publishTwist(0, 0);
       console.log("Emergency Stop Activated!");
+      if (timeoutID) {
+            clearTimeout(timeoutID);
+        }
     });
+
+    
   </script>
 </body>
 </html>
